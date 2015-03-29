@@ -68,7 +68,7 @@ namespace SharpDelegates
             return FuncCache.GetOrAdd(targetType, CreateFuncNoParams);
         }
 
-        private static Func<object, object> CreateFuncNoParams(Type targetType)
+        public static Func<object, object> CreateFuncNoParams(Type targetType)
         {
             var method = targetType.GetMethod(DefaultMethodName);
             var targetParam = Expression.Parameter(typeof (object), "targetFunc");
@@ -78,6 +78,11 @@ namespace SharpDelegates
 
             var lambda = Expression.Lambda<Func<object, object>>(convertResultExpr, targetParam);
             return lambda.Compile();
+        }
+
+        public static void ClearCache()
+        {
+            FuncCache.Clear();
         }
 
         private static readonly ConcurrentDictionary<Type, Func<object, object>> FuncCache = new ConcurrentDictionary<Type, Func<object, object>>();

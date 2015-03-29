@@ -22,63 +22,86 @@ namespace SharpDelegatesTests
         public void TestGetFuncPerf()
         {
             Func<DateTime> func = () => DateTime.Now;
-            Func<object> funcObj = () => (object)(func());
+            Func<object> funcObj = () => func();
 
+            for (int i = 0; i < 3; i++)
+            {
                 // Raw
-            Profile(() => func()); // warmup
-            var rawTime = Profile(() => funcObj());
-            
-            // Converted
-            var wrappedFunc = DelegateConverter.GetFunc(func, typeof(DateTime));
-            var convertedTime = Profile(() => wrappedFunc());
-            
-            // Dynamic
-            var dyn = (dynamic)DelegateConverter.CreateDelegate(func, typeof(DateTime));
-            var dynamicTime = Profile(() => dyn.Invoke());
+                var rawTime = Profile(() => funcObj());
 
-            // Expression tree
-            var exprTree = DelegateConverter.GetFuncUsingExprTree(func);
-            var exprTreeTime = Profile(() => exprTree());
+                // Converted
+                var wrappedFunc = DelegateConverter.GetFunc(func, typeof (DateTime));
+                var convertedTime = Profile(() => wrappedFunc());
 
-            Console.WriteLine(rawTime + " " + convertedTime + " " + + dynamicTime + " " + exprTreeTime);
-            Console.WriteLine("Converted: " + (double)convertedTime/rawTime);
-            Console.WriteLine("Dynamic: " + (double)dynamicTime/rawTime);
-            Console.WriteLine("Expr Tree: " + (double)exprTreeTime/rawTime);
+                // Dynamic
+                var dyn = (dynamic) DelegateConverter.CreateDelegate(func, typeof (DateTime));
+                var dynamicTime = Profile(() => dyn.Invoke());
+
+                // Expression tree
+                var exprTree = DelegateConverter.GetFuncUsingExprTree(func);
+                var exprTreeTime = Profile(() => exprTree());
+
+                if (i > 1)
+                {
+                    Console.WriteLine(rawTime + " " + convertedTime + " " + +dynamicTime + " " + exprTreeTime);
+                    WriteStats(convertedTime, rawTime, "Converted");
+                    WriteStats(dynamicTime, rawTime, "Dynamic");
+                    WriteStats(exprTreeTime, rawTime, "Expr Tree");
+                }
+            }
         }
 
         [TestMethod]
         public void TestGetFuncPerfNoCache()
         {
             Func<DateTime> func = () => DateTime.Now;
+            Func<object> func0 = () => func();
+            object funcObj = func0;
 
-            // Raw
-            Profile(() => func()); // warmup
-            var rawTime = Profile(() => ((Func<object>)(() => (object)(func())))());
+            for (int i = 0; i < 3; i++)
+            {
+                DelegateConverter.ClearCache();
 
-            // Converted
-            var convertedTime = Profile(() => DelegateConverter.GetFunc(func, typeof(DateTime))());
+                // Raw
+                var rawTime = Profile(() => ((Func<object>) funcObj)());
 
-            // Dynamic
-            var dynamicTime = Profile(() => ((dynamic)DelegateConverter.CreateDelegate(func, typeof(DateTime))).Invoke());
+                // Converted
+                var convertedTime = Profile(() => DelegateConverter.GetFunc(func, typeof(DateTime))());
 
-            // Expression tree
-            var exprTreeTime = Profile(() => DelegateConverter.GetFuncUsingExprTreeCached(func.GetType())(func));
+                // Dynamic
+                var dynamicTime =
+                    Profile(() => ((dynamic)DelegateConverter.CreateDelegate(func, typeof(DateTime))).Invoke());
 
-            Console.WriteLine(rawTime + " " + convertedTime + " " + +dynamicTime + " " + exprTreeTime);
-            Console.WriteLine("Converted: " + (double)convertedTime / rawTime);
-            Console.WriteLine("Dynamic: " + (double)dynamicTime / rawTime);
-            Console.WriteLine("Expr Tree: " + (double)exprTreeTime / rawTime);
+                // Dynamic
+                var dynamicTime2 = Profile(() => ((dynamic) funcObj).Invoke());
+
+                // Expression tree
+                var exprTreeTime = Profile(() => DelegateConverter.GetFuncUsingExprTreeCached(func.GetType())(func));
+
+                if (i > 1)
+                {
+                    Console.WriteLine(rawTime + " " + convertedTime + " " + +dynamicTime + " " + exprTreeTime);
+                    WriteStats(convertedTime, rawTime, "Converted");
+                    WriteStats(dynamicTime, rawTime, "Dynamic");
+                    WriteStats(dynamicTime2, rawTime, "Dynamic Direct");
+                    WriteStats(exprTreeTime, rawTime, "Expr Tree");
+                }
+            }
         }
 
+        private static void WriteStats(long resultTicks, long referenceTicks, string name)
+        {
+            Console.WriteLine("{0}: {1} times slower; Overhead: {2} ms", name, (double) resultTicks/referenceTicks, (double)(resultTicks - referenceTicks)/TestSize/TimeSpan.TicksPerMillisecond);
+        }
 
+        const int TestSize = 50000;
 
         private static long Profile(Action action)
         {
-            const int testSize = 200000;
 
             var sw = Stopwatch.StartNew();
 
-            for (int i = 0; i < testSize; i++)
+            for (int i = 0; i < TestSize; i++)
                 action();
 
             return sw.ElapsedTicks;
