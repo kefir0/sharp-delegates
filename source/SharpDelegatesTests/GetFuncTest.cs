@@ -109,7 +109,7 @@ namespace SharpDelegatesTests
 
                 // Dynamic
                 var arg = (object)3;
-                var dynamicTime2 = Profile(() => ((dynamic)genericObj).GenericFuncWithParam(arg));
+                var dynamicTime2 = Profile(() => ((dynamic)genericObj).GenericFuncWithParam((dynamic)arg));
 
                 // Expression tree
                 //var exprTreeTime = Profile(() => DelegateConverter.GetFuncUsingExprTreeCached(func.GetType())(func));
